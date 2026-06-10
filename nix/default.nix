@@ -29,4 +29,8 @@ buildDotnetModule {
   source: https://nixos.org/manual/nixpkgs/unstable/#dotnet
   */
   nugetDeps = ../deps.json;
+
+  meta = {
+    mainProgram = "octo-fiesta";
+  };
 }
