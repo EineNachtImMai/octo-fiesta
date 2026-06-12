@@ -194,24 +194,16 @@ in {
         deezer = cfg.deezer;
         qobuz = cfg.qobuz;
         squidwtf = cfg.squidWTF;
-        boolToStr = b:
-          if b
-          then "true"
-          else "false";
-        emptyIfNull = v:
-          if (v == null)
-          then ""
-          else v;
       in {
-        Subsonic__Url = lib.throwIf (sub.url == null) "Subsonic instance URL must be defined, but is null." "${sub.url}";
-        Subsonic__MusicService = "${sub.musicService}";
-        Subsonic__AdminUsername = emptyIfNull sub.admin.username;
-        Subsonic__AutoUpgradeQuality = "${boolToStr sub.autoUpgradeQuality}";
-        Subsonic__FolderTemplate = "${sub.folderTemplate}";
-        Subsonic__EnableExternalPlaylists = "${boolToStr sub.enableExternalPlaylists}";
-        Subsonic__PlaylistsDirectory = "${sub.playlistsDirectory}";
+        Subsonic__Url = lib.throwIf (sub.url == null) "Subsonic instance URL must be defined, but is null." (toString sub.url);
+        Subsonic__MusicService = toString sub.musicService;
+        Subsonic__AdminUsername = toString sub.admin.username;
+        Subsonic__AutoUpgradeQuality = toString sub.autoUpgradeQuality;
+        Subsonic__FolderTemplate = toString sub.folderTemplate;
+        Subsonic__EnableExternalPlaylists = toString sub.enableExternalPlaylists;
+        Subsonic__PlaylistsDirectory = toString sub.playlistsDirectory;
         Subsonic__StorageMode = sub.storageMode;
-        Subsonic__CacheDurationHours = lib.toString sub.cacheDurationHours;
+        Subsonic__CacheDurationHours = toString sub.cacheDurationHours;
         Subsonic__ExplicitFilter = sub.explicitFilter;
         Subsonic__DownloadMode = sub.downloadMode;
 
@@ -222,21 +214,21 @@ in {
             && lib.pathIsDirectory cfg.library.downloadPath
             */
           ) "The download path must be a valid path."
-          "${cfg.library.downloadPath}";
+          (toString cfg.library.downloadPath);
 
-        Deezer__Arl = lib.throwIf (sub.musicService == "Deezer" && deezer.arl == null) "When using Deezer as a music service, the ARL must be provided, but is null." "${emptyIfNull deezer.arl}";
-        Deezer_ArlFallback = "${emptyIfNull deezer.arlFallback}";
-        Deezer_Quality = "${deezer.quality}";
+        Deezer__Arl = lib.throwIf (sub.musicService == "Deezer" && deezer.arl == null) "When using Deezer as a music service, the ARL must be provided, but is null." (toString deezer.arl);
+        Deezer_ArlFallback = toString deezer.arlFallback;
+        Deezer_Quality = toString deezer.quality;
 
-        Qobuz__UserAuthToken = lib.throwIf (sub.musicService == "Qobuz" && qobuz.userAuthToken == null) "When using Qobuz as a music service, the user auth token must be provided, but is null." "${emptyIfNull qobuz.userAuthToken}";
-        Qobuz__UserId = lib.throwIf (sub.musicService == "Qobuz" && qobuz.userId == null) "When using Qobuz as a music service, the user ID must be provided, but is null." "${emptyIfNull qobuz.userId}";
-        Qobuz__Quality = "${qobuz.quality}";
+        Qobuz__UserAuthToken = lib.throwIf (sub.musicService == "Qobuz" && qobuz.userAuthToken == null) "When using Qobuz as a music service, the user auth token must be provided, but is null." (toString qobuz.userAuthToken);
+        Qobuz__UserId = lib.throwIf (sub.musicService == "Qobuz" && qobuz.userId == null) "When using Qobuz as a music service, the user ID must be provided, but is null." (toString qobuz.userId);
+        Qobuz__Quality = toString qobuz.quality;
 
-        SquidWTF__Source = "${squidwtf.source}";
-        SquidWTF__Quality = "${squidwtf.quality}";
+        SquidWTF__Source = toString squidwtf.source;
+        SquidWTF__Quality = toString squidwtf.quality;
         SquidWTF__InstanceTimeoutSeconds = toString squidwtf.instancesTimeoutSeconds;
-        SquidWTF__Instance__0 = "${emptyIfNull squidwtf.instances}";
-        SquidWTF__InstancesUrl = "${squidwtf.instancesUrl}";
+        SquidWTF__Instance__0 = toString squidwtf.instances;
+        SquidWTF__InstancesUrl = toString squidwtf.instancesUrl;
       };
       serviceConfig = {
         Type = "simple";
