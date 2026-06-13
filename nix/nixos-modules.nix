@@ -194,13 +194,17 @@ in {
         deezer = cfg.deezer;
         qobuz = cfg.qobuz;
         squidwtf = cfg.squidWTF;
+        boolToString = input:
+          if input
+          then "true"
+          else "false";
       in {
         Subsonic__Url = lib.throwIf (sub.url == null) "Subsonic instance URL must be defined, but is null." (toString sub.url);
         Subsonic__MusicService = toString sub.musicService;
         Subsonic__AdminUsername = toString sub.admin.username;
-        Subsonic__AutoUpgradeQuality = toString sub.autoUpgradeQuality;
+        Subsonic__AutoUpgradeQuality = boolToString sub.autoUpgradeQuality;
         Subsonic__FolderTemplate = toString sub.folderTemplate;
-        Subsonic__EnableExternalPlaylists = toString sub.enableExternalPlaylists;
+        Subsonic__EnableExternalPlaylists = boolToString sub.enableExternalPlaylists;
         Subsonic__PlaylistsDirectory = toString sub.playlistsDirectory;
         Subsonic__StorageMode = sub.storageMode;
         Subsonic__CacheDurationHours = toString sub.cacheDurationHours;
