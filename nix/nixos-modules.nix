@@ -38,9 +38,9 @@ in {
         };
 
         musicService = lib.mkOption {
-          type = with lib.types; enum ["Deezer" "Qobuz" "SquidWTF"];
+          type = with lib.types; enum ["Deezer" "Qobuz" "SquidWTF" "Yandex"];
           default = "SquidWTF";
-          description = "Music provider to use: Deezer, Qobuz, or SquidWTF";
+          description = "Music provider to use: Deezer, Qobuz, SquidWTF, or Yandex";
         };
 
         autoUpgradeQuality = lib.mkOption {
@@ -180,6 +180,32 @@ in {
         #   description = "Override base URL of the Qobuz backend (e.g. a self-hosted qobuz-dl instance). Useful when the public instance is rate-limited or CAPTCHA-walled (Qobuz only)";
         # };
       };
+
+      yandex = {
+        OAuthToken = lib.mkOption {
+          type = with lib.types; nullOr str;
+          default = null;
+          description = "OAuth token for API access (required)";
+        };
+
+        quality = lib.mkOption {
+          type = lib.types.enum ["FLAC" "MP3_320" "AAC_256" "AAC_192" "MP3_192" "AAC_64"];
+          default = "FLAC";
+          description = "Preferred audio quality";
+        };
+
+        language = lib.mkOption {
+          type = lib.types.enum ["en" "uz" "uk" "us" "ru" "kk" "hy"];
+          default = "ru";
+          description = "Language for API responses. Some titles and curated playlists are translated. Available: en, uz, uk, us, ru, kk, hy";
+        };
+
+        includeUnavailable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Include tracks marked unavailable in search results, albums, and playlists";
+        };
+      };
     };
   };
 
@@ -194,6 +220,7 @@ in {
         deezer = cfg.deezer;
         qobuz = cfg.qobuz;
         squidwtf = cfg.squidWTF;
+        yandex = cfg.yandex;
         boolToString = input:
           if input
           then "true"
@@ -233,6 +260,11 @@ in {
         SquidWTF__InstanceTimeoutSeconds = toString squidwtf.instancesTimeoutSeconds;
         SquidWTF__Instance__0 = toString squidwtf.instances;
         SquidWTF__InstancesUrl = toString squidwtf.instancesUrl;
+
+        Yandex__OAuthToken = lib.throwIf (sub.musicService == "Yandex" && yandex.OAuthToken == null) "When using Yandex as a music service, the OAuth token must be provided, but is null." (toString yandex.OAuthToken);
+        Yandex__Quality = toString yandex.quality;
+        Yandex__Language = toString yandex.language;
+        Yandex__IncludeUnavailable = toString yandex.includeUnavailable;
       };
       serviceConfig = {
         Type = "simple";
