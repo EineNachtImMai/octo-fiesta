@@ -183,8 +183,8 @@ in {
     };
   };
 
-  config = {
-    systemd.services.octo-fiesta = lib.mkIf cfg.enable {
+  config = lib.mkIf cfg.enable {
+    systemd.services.octo-fiesta = {
       enable = true;
       after = ["network.target"];
       wantedBy = ["default.target"];
