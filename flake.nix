@@ -5,7 +5,8 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
   };
   outputs = {self, ...} @ inputs: let
-    module = import ./nix/nixos-modules.nix self;
+    nixosModule = import ./nix/nixos-modules.nix self;
+    hmModule = import ./nix/hm-modules.nix self;
   in
     inputs.flake-parts.lib.mkFlake {inherit inputs;} {
       systems = [
@@ -16,7 +17,12 @@
       ];
       flake = {
         nixosModules = rec {
-          octo-fiesta = module;
+          octo-fiesta = nixosModule;
+          default = octo-fiesta;
+        };
+
+        hmModules = rec {
+          octo-fiesta = hmModule;
           default = octo-fiesta;
         };
       };
