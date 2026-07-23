@@ -157,8 +157,20 @@ public class SubsonicController : ControllerBase
             return await _proxyService.RelayStreamAsync(parameters, HttpContext.RequestAborted);
         }
 
-        // Always go through DownloadAndStreamAsync for external songs
-        // This ensures quality upgrade logic is applied
+        // Serve an already-owned copy from the library instead of re-downloading.
+        // Skipped when AutoUpgradeQuality is on so the download path can still
+        // upgrade a lower-quality local copy on play.
+        if (!_subsonicSettings.AutoUpgradeQuality)
+        {
+            var localSongId = await _localLibraryService.GetLocalIdForExternalSongAsync(provider!, externalId!);
+            if (!string.IsNullOrEmpty(localSongId))
+            {
+                parameters["id"] = localSongId;
+                return await _proxyService.RelayStreamAsync(parameters, HttpContext.RequestAborted);
+            }
+        }
+
+        // Otherwise download from the provider and stream (quality upgrade logic applies)
         try
         {
             // Allow cancellation from both client disconnect and application shutdown
@@ -793,8 +805,15 @@ public class SubsonicController : ControllerBase
                 {
                     try
                     {
-                        var token = await captchaSolver.GetAmazonCaptchaTokenAsync("https://amz.squid.wtf");
+                        var (token, sessionCookie) = await captchaSolver.GetAmazonCaptchaTokenAsync("https://amz.squid.wtf");
                         req.Headers.Add("X-Captcha-Token", token);
+                        req.Headers.Add("Cookie", sessionCookie);
+                        req.Headers.Add("Origin", "https://amz.squid.wtf");
+                        req.Headers.Add("Referer", "https://amz.squid.wtf/");
+                        req.Headers.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36");
+                        req.Headers.Add("Sec-Fetch-Site", "same-origin");
+                        req.Headers.Add("Sec-Fetch-Mode", "cors");
+                        req.Headers.Add("Sec-Fetch-Dest", "empty");
                     }
                     catch (Exception ex)
                     {
