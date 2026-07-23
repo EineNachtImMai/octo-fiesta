@@ -1,14 +1,8 @@
-self:
-{
-  config,
-  pkgs,
-  ...
-}:
-let
+self: {config, ...}: let
+  pkgs = import self.inputs.nixpkgs {system = "x86_64-linux";};
   cfg = config.services.octo-fiesta;
   inherit (pkgs) lib;
-in
-{
+in {
   options = {
     services.octo-fiesta = {
       enable = lib.mkEnableOption "octo-fiesta, a Subsonic API proxy server that transparently integrates multiple music streaming providers as sources.";
@@ -250,8 +244,8 @@ in
   config = lib.mkIf cfg.enable {
     systemd.services.octo-fiesta = {
       enable = true;
-      after = [ "network.target" ];
-      wantedBy = [ "default.target" ];
+      after = ["network.target"];
+      wantedBy = ["default.target"];
       description = "octo-fiesta, a Subsonic API proxy server that transparently integrates multiple music streaming providers as sources.";
       environment = let
         sub = cfg.subsonic;
@@ -276,27 +270,27 @@ in
         Subsonic__ExplicitFilter = sub.explicitFilter;
         Subsonic__DownloadMode = sub.downloadMode;
 
-          Library__DownloadPath = lib.throwIfNot (
-            cfg.library.downloadPath != null
-            # && lib.pathIsDirectory cfg.library.downloadPath
-          ) "The download path must be a valid path." (toString cfg.library.downloadPath);
+        Library__DownloadPath = lib.throwIfNot (
+          cfg.library.downloadPath != null
+          # && lib.pathIsDirectory cfg.library.downloadPath
+        ) "The download path must be a valid path." (toString cfg.library.downloadPath);
 
-          Deezer__Arl =
-            lib.throwIf (sub.musicService == "Deezer" && deezer.arl == null)
-              "When using Deezer as a music service, the ARL must be provided, but is null."
-              (toString deezer.arl);
-          Deezer_ArlFallback = toString deezer.arlFallback;
-          Deezer_Quality = toString deezer.quality;
+        Deezer__Arl =
+          lib.throwIf (sub.musicService == "Deezer" && deezer.arl == null)
+          "When using Deezer as a music service, the ARL must be provided, but is null."
+          (toString deezer.arl);
+        Deezer_ArlFallback = toString deezer.arlFallback;
+        Deezer_Quality = toString deezer.quality;
 
-          Qobuz__UserAuthToken =
-            lib.throwIf (sub.musicService == "Qobuz" && qobuz.userAuthToken == null)
-              "When using Qobuz as a music service, the user auth token must be provided, but is null."
-              (toString qobuz.userAuthToken);
-          Qobuz__UserId =
-            lib.throwIf (sub.musicService == "Qobuz" && qobuz.userId == null)
-              "When using Qobuz as a music service, the user ID must be provided, but is null."
-              (toString qobuz.userId);
-          Qobuz__Quality = toString qobuz.quality;
+        Qobuz__UserAuthToken =
+          lib.throwIf (sub.musicService == "Qobuz" && qobuz.userAuthToken == null)
+          "When using Qobuz as a music service, the user auth token must be provided, but is null."
+          (toString qobuz.userAuthToken);
+        Qobuz__UserId =
+          lib.throwIf (sub.musicService == "Qobuz" && qobuz.userId == null)
+          "When using Qobuz as a music service, the user ID must be provided, but is null."
+          (toString qobuz.userId);
+        Qobuz__Quality = toString qobuz.quality;
 
         SquidWTF__Source = toString squidwtf.source;
         SquidWTF__Quality = toString squidwtf.quality;

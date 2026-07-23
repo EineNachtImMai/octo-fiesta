@@ -4,11 +4,9 @@
 
     flake-parts.url = "github:hercules-ci/flake-parts";
   };
-  outputs = {self, ...} @ inputs: let
-    nixosModule = import ./nix/nixos-modules.nix self;
-    hmModule = import ./nix/hm-modules.nix self;
-  in
-    inputs.flake-parts.lib.mkFlake {inherit inputs;} {
+  outputs = {self, ...} @ inputs:
+    inputs.flake-parts.lib.mkFlake {inherit inputs;}
+    {
       systems = [
         "x86_64-linux"
         # "x86_64-darwin"
@@ -17,22 +15,20 @@
       ];
       flake = {
         nixosModules = rec {
-          octo-fiesta = nixosModule;
+          octo-fiesta = import ./nix/nixos-modules.nix self;
           default = octo-fiesta;
         };
 
         hmModules = rec {
-          octo-fiesta = hmModule;
+          octo-fiesta = import ./nix/hm-modules.nix self;
           default = octo-fiesta;
         };
       };
-      perSystem =
-        { pkgs, ... }:
-        {
-          packages = rec {
-            octo-fiesta = pkgs.callPackage ./nix { };
-            default = octo-fiesta;
-          };
+      perSystem = {pkgs, ...}: {
+        packages = rec {
+          octo-fiesta = pkgs.callPackage ./nix {};
+          default = octo-fiesta;
         };
+      };
     };
 }
