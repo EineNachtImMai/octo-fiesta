@@ -301,7 +301,7 @@ in {
         Yandex__OAuthToken = lib.throwIf (sub.musicService == "Yandex" && yandex.OAuthToken == null) "When using Yandex as a music service, the OAuth token must be provided, but is null." (toString yandex.OAuthToken);
         Yandex__Quality = toString yandex.quality;
         Yandex__Language = toString yandex.language;
-        Yandex__IncludeUnavailable = toString yandex.includeUnavailable;
+        Yandex__IncludeUnavailable = boolToString yandex.includeUnavailable;
       };
       serviceConfig = {
         Type = "simple";
