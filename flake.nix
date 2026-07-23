@@ -26,11 +26,13 @@
           default = octo-fiesta;
         };
       };
-      perSystem = {pkgs, ...}: {
-        packages = rec {
-          octo-fiesta = pkgs.callPackage ./nix {};
-          default = octo-fiesta;
+      perSystem =
+        { pkgs, ... }:
+        {
+          packages = rec {
+            octo-fiesta = pkgs.callPackage ./nix { };
+            default = octo-fiesta;
+          };
         };
-      };
     };
 }

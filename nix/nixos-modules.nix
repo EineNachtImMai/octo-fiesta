@@ -1,11 +1,14 @@
-self: {
+self:
+{
   config,
   pkgs,
   ...
-}: let
+}:
+let
   cfg = config.services.octo-fiesta;
   inherit (pkgs) lib;
-in {
+in
+{
   options = {
     services.octo-fiesta = {
       enable = lib.mkEnableOption "octo-fiesta, a Subsonic API proxy server that transparently integrates multiple music streaming providers as sources.";
@@ -71,7 +74,10 @@ in {
         };
 
         storageMode = lib.mkOption {
-          type = lib.types.enum ["Permanent" "Cache"];
+          type = lib.types.enum [
+            "Permanent"
+            "Cache"
+          ];
           default = "Permanent";
           description = "Storage mode: Permanent (saved to library), Cache (temporary, auto-cleanup)";
         };
@@ -83,13 +89,20 @@ in {
         };
 
         explicitFilter = lib.mkOption {
-          type = lib.types.enum ["All" "ExplicitOnly" "CleanOnly"];
+          type = lib.types.enum [
+            "All"
+            "ExplicitOnly"
+            "CleanOnly"
+          ];
           default = "All";
           description = "Explicit content filter: All, ExplicitOnly, CleanOnly (default: All)";
         };
 
         downloadMode = lib.mkOption {
-          type = lib.types.enum ["Track" "Album"];
+          type = lib.types.enum [
+            "Track"
+            "Album"
+          ];
           default = "Track";
           description = "Download mode: Track (only requested track), Album (full album when playing a track)";
         };
@@ -117,7 +130,12 @@ in {
         };
 
         quality = lib.mkOption {
-          type = lib.types.enum ["auto" "FLAC" "MP3_320" "MP3_128"];
+          type = lib.types.enum [
+            "auto"
+            "FLAC"
+            "MP3_320"
+            "MP3_128"
+          ];
           default = "auto";
           description = "Preferred audio quality";
         };
@@ -137,7 +155,14 @@ in {
         };
 
         quality = lib.mkOption {
-          type = lib.types.enum ["auto" "FLAC_24_HIGH" "FLAC_24_LOW" "FLAC" "FLAC_16" "MP3_320"];
+          type = lib.types.enum [
+            "auto"
+            "FLAC_24_HIGH"
+            "FLAC_24_LOW"
+            "FLAC"
+            "FLAC_16"
+            "MP3_320"
+          ];
           default = "auto";
           description = "Preferred audio quality";
         };
@@ -145,13 +170,26 @@ in {
 
       squidWTF = {
         source = lib.mkOption {
-          type = lib.types.enum ["Qobuz" "Tidal"];
+          type = lib.types.enum [
+            "Qobuz"
+            "Tidal"
+          ];
           default = "Qobuz";
           description = "Backend to use: Qobuz or Tidal";
         };
 
         quality = lib.mkOption {
-          type = lib.types.enum ["auto" "27" "7" "6" "5" "HI_RES_LOSSLESS" "LOSSLESS" "HIGH" "LOW"];
+          type = lib.types.enum [
+            "auto"
+            "27"
+            "7"
+            "6"
+            "5"
+            "HI_RES_LOSSLESS"
+            "LOSSLESS"
+            "HIGH"
+            "LOW"
+          ];
           default = "auto";
           description = "Preferred audio quality";
         };
@@ -212,8 +250,8 @@ in {
   config = lib.mkIf cfg.enable {
     systemd.services.octo-fiesta = {
       enable = true;
-      after = ["network.target"];
-      wantedBy = ["default.target"];
+      after = [ "network.target" ];
+      wantedBy = [ "default.target" ];
       description = "octo-fiesta, a Subsonic API proxy server that transparently integrates multiple music streaming providers as sources.";
       environment = let
         sub = cfg.subsonic;
@@ -238,22 +276,27 @@ in {
         Subsonic__ExplicitFilter = sub.explicitFilter;
         Subsonic__DownloadMode = sub.downloadMode;
 
-        Library__DownloadPath =
-          lib.throwIfNot (
+          Library__DownloadPath = lib.throwIfNot (
             cfg.library.downloadPath != null
-            /*
-            && lib.pathIsDirectory cfg.library.downloadPath
-            */
-          ) "The download path must be a valid path."
-          (toString cfg.library.downloadPath);
+            # && lib.pathIsDirectory cfg.library.downloadPath
+          ) "The download path must be a valid path." (toString cfg.library.downloadPath);
 
-        Deezer__Arl = lib.throwIf (sub.musicService == "Deezer" && deezer.arl == null) "When using Deezer as a music service, the ARL must be provided, but is null." (toString deezer.arl);
-        Deezer_ArlFallback = toString deezer.arlFallback;
-        Deezer_Quality = toString deezer.quality;
+          Deezer__Arl =
+            lib.throwIf (sub.musicService == "Deezer" && deezer.arl == null)
+              "When using Deezer as a music service, the ARL must be provided, but is null."
+              (toString deezer.arl);
+          Deezer_ArlFallback = toString deezer.arlFallback;
+          Deezer_Quality = toString deezer.quality;
 
-        Qobuz__UserAuthToken = lib.throwIf (sub.musicService == "Qobuz" && qobuz.userAuthToken == null) "When using Qobuz as a music service, the user auth token must be provided, but is null." (toString qobuz.userAuthToken);
-        Qobuz__UserId = lib.throwIf (sub.musicService == "Qobuz" && qobuz.userId == null) "When using Qobuz as a music service, the user ID must be provided, but is null." (toString qobuz.userId);
-        Qobuz__Quality = toString qobuz.quality;
+          Qobuz__UserAuthToken =
+            lib.throwIf (sub.musicService == "Qobuz" && qobuz.userAuthToken == null)
+              "When using Qobuz as a music service, the user auth token must be provided, but is null."
+              (toString qobuz.userAuthToken);
+          Qobuz__UserId =
+            lib.throwIf (sub.musicService == "Qobuz" && qobuz.userId == null)
+              "When using Qobuz as a music service, the user ID must be provided, but is null."
+              (toString qobuz.userId);
+          Qobuz__Quality = toString qobuz.quality;
 
         SquidWTF__Source = toString squidwtf.source;
         SquidWTF__Quality = toString squidwtf.quality;
@@ -268,7 +311,7 @@ in {
       };
       serviceConfig = {
         Type = "simple";
-        ExecStart = ''${lib.getExe cfg.package}'';
+        ExecStart = "${lib.getExe cfg.package}";
       };
     };
   };
