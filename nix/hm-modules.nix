@@ -1,8 +1,5 @@
-self: {
-  config,
-  pkgs,
-  ...
-}: let
+self: {config, ...}: let
+  pkgs = import self.inputs.nixpkgs {system = "x86_64-linux";};
   cfg = config.services.octo-fiesta;
   inherit (pkgs) lib;
 in {
@@ -38,9 +35,9 @@ in {
         };
 
         musicService = lib.mkOption {
-          type = with lib.types; enum ["Deezer" "Qobuz" "SquidWTF"];
+          type = with lib.types; enum ["Deezer" "Qobuz" "SquidWTF" "Yandex"];
           default = "SquidWTF";
-          description = "Music provider to use: Deezer, Qobuz, or SquidWTF";
+          description = "Music provider to use: Deezer, Qobuz, SquidWTF, or Yandex";
         };
 
         autoUpgradeQuality = lib.mkOption {
@@ -71,7 +68,10 @@ in {
         };
 
         storageMode = lib.mkOption {
-          type = lib.types.enum ["Permanent" "Cache"];
+          type = lib.types.enum [
+            "Permanent"
+            "Cache"
+          ];
           default = "Permanent";
           description = "Storage mode: Permanent (saved to library), Cache (temporary, auto-cleanup)";
         };
@@ -83,15 +83,28 @@ in {
         };
 
         explicitFilter = lib.mkOption {
-          type = lib.types.enum ["All" "ExplicitOnly" "CleanOnly"];
+          type = lib.types.enum [
+            "All"
+            "ExplicitOnly"
+            "CleanOnly"
+          ];
           default = "All";
           description = "Explicit content filter: All, ExplicitOnly, CleanOnly (default: All)";
         };
 
         downloadMode = lib.mkOption {
-          type = lib.types.enum ["Track" "Album"];
+          type = lib.types.enum [
+            "Track"
+            "Album"
+          ];
           default = "Track";
           description = "Download mode: Track (only requested track), Album (full album when playing a track)";
+        };
+
+        disableLibraryScan = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Skip triggering a Subsonic library scan after a download completes";
         };
       };
 
@@ -117,7 +130,12 @@ in {
         };
 
         quality = lib.mkOption {
-          type = lib.types.enum ["auto" "FLAC" "MP3_320" "MP3_128"];
+          type = lib.types.enum [
+            "auto"
+            "FLAC"
+            "MP3_320"
+            "MP3_128"
+          ];
           default = "auto";
           description = "Preferred audio quality";
         };
@@ -137,7 +155,14 @@ in {
         };
 
         quality = lib.mkOption {
-          type = lib.types.enum ["auto" "FLAC_24_HIGH" "FLAC_24_LOW" "FLAC" "FLAC_16" "MP3_320"];
+          type = lib.types.enum [
+            "auto"
+            "FLAC_24_HIGH"
+            "FLAC_24_LOW"
+            "FLAC"
+            "FLAC_16"
+            "MP3_320"
+          ];
           default = "auto";
           description = "Preferred audio quality";
         };
@@ -145,13 +170,26 @@ in {
 
       squidWTF = {
         source = lib.mkOption {
-          type = lib.types.enum ["Qobuz" "Tidal"];
+          type = lib.types.enum [
+            "Qobuz"
+            "Tidal"
+          ];
           default = "Qobuz";
           description = "Backend to use: Qobuz or Tidal";
         };
 
         quality = lib.mkOption {
-          type = lib.types.enum ["auto" "27" "7" "6" "5" "HI_RES_LOSSLESS" "LOSSLESS" "HIGH" "LOW"];
+          type = lib.types.enum [
+            "auto"
+            "27"
+            "7"
+            "6"
+            "5"
+            "HI_RES_LOSSLESS"
+            "LOSSLESS"
+            "HIGH"
+            "LOW"
+          ];
           default = "auto";
           description = "Preferred audio quality";
         };
@@ -179,6 +217,56 @@ in {
         #   default = "https://qobuz.squid.wtf";
         #   description = "Override base URL of the Qobuz backend (e.g. a self-hosted qobuz-dl instance). Useful when the public instance is rate-limited or CAPTCHA-walled (Qobuz only)";
         # };
+      };
+
+      tidal = {
+        tokenStore = lib.mkOption {
+          type = lib.types.str;
+          default = "/config/tidal-tokens.json";
+          description = "Path of the JSON file holding the OAuth tokens. Must stay writable, renewals are written back to it";
+        };
+
+        quality = lib.mkOption {
+          type = lib.types.enum ["auto" "HI_RES_LOSSLESS" "LOSSLESS" "HIGH" "LOW"];
+          default = "auto";
+          description = "Preferred audio quality";
+        };
+
+        clientId = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Device client octo-fiesta authenticates as. Identifies the application, not your account";
+        };
+
+        clientSecret = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Secret matching the client id";
+        };
+
+        accessToken = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Access token obtained elsewhere, takes precedence over the token store";
+        };
+
+        refreshToken = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Refresh token obtained elsewhere, takes precedence over the token store";
+        };
+
+        userId = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Tidal user ID, resolved from the session when empty";
+        };
+
+        countryCode = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Country code driving catalogue availability, resolved from the account when empty";
+        };
       };
 
       yandex = {
@@ -219,12 +307,24 @@ in {
         sub = cfg.subsonic;
         deezer = cfg.deezer;
         qobuz = cfg.qobuz;
+        tidal = cfg.tidal;
         squidwtf = cfg.squidWTF;
         yandex = cfg.yandex;
+
         boolToString = input:
           if input
           then "true"
           else "false";
+
+        /*
+        "auto" isn't an option (it's actually the empty string)
+        but it's clearer than setting an empty string in my opinion,
+        and some people like setting the option explicitly
+        */
+        qualityToString = quality:
+          if quality == "auto"
+          then ""
+          else toString quality;
       in {
         Subsonic__Url = lib.throwIf (sub.url == null) "Subsonic instance URL must be defined, but is null." (toString sub.url);
         Subsonic__MusicService = toString sub.musicService;
@@ -237,38 +337,53 @@ in {
         Subsonic__CacheDurationHours = toString sub.cacheDurationHours;
         Subsonic__ExplicitFilter = sub.explicitFilter;
         Subsonic__DownloadMode = sub.downloadMode;
+        Subsonic__DisableLibraryScan = boolToString sub.disableLibraryScan;
 
-        Library__DownloadPath =
-          lib.throwIfNot (
-            cfg.library.downloadPath != null
-            /*
-            && lib.pathIsDirectory cfg.library.downloadPath
-            */
-          ) "The download path must be a valid path."
-          (toString cfg.library.downloadPath);
+        Library__DownloadPath = lib.throwIfNot (
+          cfg.library.downloadPath != null
+          # && lib.pathIsDirectory cfg.library.downloadPath
+        ) "The download path must be a valid path." (toString cfg.library.downloadPath);
 
-        Deezer__Arl = lib.throwIf (sub.musicService == "Deezer" && deezer.arl == null) "When using Deezer as a music service, the ARL must be provided, but is null." (toString deezer.arl);
+        Deezer__Arl =
+          lib.throwIf (sub.musicService == "Deezer" && deezer.arl == null)
+          "When using Deezer as a music service, the ARL must be provided, but is null."
+          (toString deezer.arl);
         Deezer_ArlFallback = toString deezer.arlFallback;
-        Deezer_Quality = toString deezer.quality;
+        Deezer_Quality = qualityToString deezer.quality;
 
-        Qobuz__UserAuthToken = lib.throwIf (sub.musicService == "Qobuz" && qobuz.userAuthToken == null) "When using Qobuz as a music service, the user auth token must be provided, but is null." (toString qobuz.userAuthToken);
-        Qobuz__UserId = lib.throwIf (sub.musicService == "Qobuz" && qobuz.userId == null) "When using Qobuz as a music service, the user ID must be provided, but is null." (toString qobuz.userId);
-        Qobuz__Quality = toString qobuz.quality;
+        Qobuz__UserAuthToken =
+          lib.throwIf (sub.musicService == "Qobuz" && qobuz.userAuthToken == null)
+          "When using Qobuz as a music service, the user auth token must be provided, but is null."
+          (toString qobuz.userAuthToken);
+        Qobuz__UserId =
+          lib.throwIf (sub.musicService == "Qobuz" && qobuz.userId == null)
+          "When using Qobuz as a music service, the user ID must be provided, but is null."
+          (toString qobuz.userId);
+        Qobuz__Quality = qualityToString qobuz.quality;
+
+        Tidal__TokenStore = tidal.tokenStore;
+        Tidal__Quality = qualityToString tidal.quality;
+        Tidal__ClientId = tidal.clientId;
+        Tidal__ClientSecret = tidal.clientSecret;
+        Tidal__AccessToken = tidal.accessToken;
+        Tidal__RefreshToken = tidal.refreshToken;
+        Tidal__UserId = tidal.userId;
+        Tidal__CountryCode = tidal.countryCode;
 
         SquidWTF__Source = toString squidwtf.source;
-        SquidWTF__Quality = toString squidwtf.quality;
+        SquidWTF__Quality = qualityToString squidwtf.quality;
         SquidWTF__InstanceTimeoutSeconds = toString squidwtf.instancesTimeoutSeconds;
-        SquidWTF__Instance__0 = toString squidwtf.instances;
+        SquidWTF__Instances__0 = toString squidwtf.instances;
         SquidWTF__InstancesUrl = toString squidwtf.instancesUrl;
 
         Yandex__OAuthToken = lib.throwIf (sub.musicService == "Yandex" && yandex.OAuthToken == null) "When using Yandex as a music service, the OAuth token must be provided, but is null." (toString yandex.OAuthToken);
-        Yandex__Quality = toString yandex.quality;
+        Yandex__Quality = qualityToString yandex.quality;
         Yandex__Language = toString yandex.language;
-        Yandex__IncludeUnavailable = toString yandex.includeUnavailable;
+        Yandex__IncludeUnavailable = boolToString yandex.includeUnavailable;
       };
       serviceConfig = {
         Type = "simple";
-        ExecStart = ''${lib.getExe cfg.package}'';
+        ExecStart = "${lib.getExe cfg.package}";
       };
     };
   };

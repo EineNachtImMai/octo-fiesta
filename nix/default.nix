@@ -5,12 +5,12 @@
 }:
 buildDotnetModule rec {
   pname = "octo-fiesta";
-  version = "0.10";
+  version = "0.11";
   src = fetchFromGitHub {
     repo = "octo-fiesta";
     owner = "V1ck3s";
     tag = "v${version}";
-    sha256 = "sha256-1DMx+PLK9Lxhf052meovrvgya/8WP7YngQjQqwyxOos=";
+    sha256 = "sha256-ypuhK0Ocz1MJl1TauFXoftlkiF2mR3RbrrsDsEIvBlk=";
   };
 
   doCheck = true;

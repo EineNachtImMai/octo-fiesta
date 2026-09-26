@@ -100,6 +100,12 @@ in {
           default = "Track";
           description = "Download mode: Track (only requested track), Album (full album when playing a track)";
         };
+
+        disableLibraryScan = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Skip triggering a Subsonic library scan after a download completes";
+        };
       };
 
       library = {
@@ -213,6 +219,56 @@ in {
         # };
       };
 
+      tidal = {
+        tokenStore = lib.mkOption {
+          type = lib.types.str;
+          default = "/config/tidal-tokens.json";
+          description = "Path of the JSON file holding the OAuth tokens. Must stay writable, renewals are written back to it";
+        };
+
+        quality = lib.mkOption {
+          type = lib.types.enum ["auto" "HI_RES_LOSSLESS" "LOSSLESS" "HIGH" "LOW"];
+          default = "auto";
+          description = "Preferred audio quality";
+        };
+
+        clientId = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Device client octo-fiesta authenticates as. Identifies the application, not your account";
+        };
+
+        clientSecret = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Secret matching the client id";
+        };
+
+        accessToken = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Access token obtained elsewhere, takes precedence over the token store";
+        };
+
+        refreshToken = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Refresh token obtained elsewhere, takes precedence over the token store";
+        };
+
+        userId = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Tidal user ID, resolved from the session when empty";
+        };
+
+        countryCode = lib.mkOption {
+          type = lib.types.str;
+          default = "";
+          description = "Country code driving catalogue availability, resolved from the account when empty";
+        };
+      };
+
       yandex = {
         OAuthToken = lib.mkOption {
           type = with lib.types; nullOr str;
@@ -251,12 +307,24 @@ in {
         sub = cfg.subsonic;
         deezer = cfg.deezer;
         qobuz = cfg.qobuz;
+        tidal = cfg.tidal;
         squidwtf = cfg.squidWTF;
         yandex = cfg.yandex;
+
         boolToString = input:
           if input
           then "true"
           else "false";
+
+        /*
+        "auto" isn't an option (it's actually the empty string)
+        but it's clearer than setting an empty string in my opinion,
+        and some people like setting the option explicitly
+        */
+        qualityToString = quality:
+          if quality == "auto"
+          then ""
+          else toString quality;
       in {
         Subsonic__Url = lib.throwIf (sub.url == null) "Subsonic instance URL must be defined, but is null." (toString sub.url);
         Subsonic__MusicService = toString sub.musicService;
@@ -269,6 +337,7 @@ in {
         Subsonic__CacheDurationHours = toString sub.cacheDurationHours;
         Subsonic__ExplicitFilter = sub.explicitFilter;
         Subsonic__DownloadMode = sub.downloadMode;
+        Subsonic__DisableLibraryScan = boolToString sub.disableLibraryScan;
 
         Library__DownloadPath = lib.throwIfNot (
           cfg.library.downloadPath != null
@@ -280,7 +349,7 @@ in {
           "When using Deezer as a music service, the ARL must be provided, but is null."
           (toString deezer.arl);
         Deezer_ArlFallback = toString deezer.arlFallback;
-        Deezer_Quality = toString deezer.quality;
+        Deezer_Quality = qualityToString deezer.quality;
 
         Qobuz__UserAuthToken =
           lib.throwIf (sub.musicService == "Qobuz" && qobuz.userAuthToken == null)
@@ -290,16 +359,25 @@ in {
           lib.throwIf (sub.musicService == "Qobuz" && qobuz.userId == null)
           "When using Qobuz as a music service, the user ID must be provided, but is null."
           (toString qobuz.userId);
-        Qobuz__Quality = toString qobuz.quality;
+        Qobuz__Quality = qualityToString qobuz.quality;
+
+        Tidal__TokenStore = tidal.tokenStore;
+        Tidal__Quality = qualityToString tidal.quality;
+        Tidal__ClientId = tidal.clientId;
+        Tidal__ClientSecret = tidal.clientSecret;
+        Tidal__AccessToken = tidal.accessToken;
+        Tidal__RefreshToken = tidal.refreshToken;
+        Tidal__UserId = tidal.userId;
+        Tidal__CountryCode = tidal.countryCode;
 
         SquidWTF__Source = toString squidwtf.source;
-        SquidWTF__Quality = toString squidwtf.quality;
+        SquidWTF__Quality = qualityToString squidwtf.quality;
         SquidWTF__InstanceTimeoutSeconds = toString squidwtf.instancesTimeoutSeconds;
-        SquidWTF__Instance__0 = toString squidwtf.instances;
+        SquidWTF__Instances__0 = toString squidwtf.instances;
         SquidWTF__InstancesUrl = toString squidwtf.instancesUrl;
 
         Yandex__OAuthToken = lib.throwIf (sub.musicService == "Yandex" && yandex.OAuthToken == null) "When using Yandex as a music service, the OAuth token must be provided, but is null." (toString yandex.OAuthToken);
-        Yandex__Quality = toString yandex.quality;
+        Yandex__Quality = qualityToString yandex.quality;
         Yandex__Language = toString yandex.language;
         Yandex__IncludeUnavailable = boolToString yandex.includeUnavailable;
       };
