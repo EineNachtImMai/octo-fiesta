@@ -74,13 +74,19 @@ public enum MusicService
     
     /// <summary>
     /// SquidWTF music service (supports Qobuz and Tidal backends)
+    /// DEPRECATED: upstream squid.wtf music services are down; may be removed in a future release
     /// </summary>
     SquidWTF,
 
     /// <summary>
     /// Yandex music service
     /// </summary>
-    Yandex
+    Yandex,
+
+    /// <summary>
+    /// Tidal music service, using your own account through Tidal's official API
+    /// </summary>
+    Tidal
 }
 
 public class SubsonicSettings
@@ -121,11 +127,11 @@ public class SubsonicSettings
     public DownloadMode DownloadMode { get; set; } = DownloadMode.Track;
     
     /// <summary>
-    /// Music service to use (default: SquidWTF)
+    /// Music service to use (default: Deezer)
     /// Environment variable: MUSIC_SERVICE
-    /// Values: "Deezer", "Qobuz", "SquidWTF"
+    /// Values: "Deezer", "Qobuz", "Tidal", "Yandex", "SquidWTF" (deprecated)
     /// </summary>
-    public MusicService MusicService { get; set; } = MusicService.SquidWTF;
+    public MusicService MusicService { get; set; } = MusicService.Deezer;
     
     /// <summary>
     /// Storage mode for downloaded files (default: Permanent)
@@ -169,7 +175,7 @@ public class SubsonicSettings
     /// <summary>
     /// Template for organizing downloaded files into folders (default: {artist}/{album}/{track} - {title})
     /// Environment variable: FOLDER_TEMPLATE
-    /// Available placeholders: {artist}, {album}, {title}, {track}, {disc}, {year}, {genre}, {quality}
+    /// Available placeholders: {artistLetter}, {artist}, {album}, {title}, {track}, {disc}, {year}, {genre}, {quality}
     /// Slashes (/) separate folder levels; the last segment becomes the file name.
     /// </summary>
     public string FolderTemplate { get; set; } = "{artist}/{album}/{track} - {title}";

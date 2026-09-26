@@ -36,6 +36,9 @@ public abstract class BaseDownloadService : IDownloadService
     // Key: "{provider}|{externalId}" -> (path or null, expiry)
     private readonly ConcurrentDictionary<string, (string? Path, DateTime Expiry)> _metadataPathCache = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _metadataPathLocks = new();
+
+    // Tracks queued for a quality upgrade, and those the provider cannot serve any higher
+    private readonly ConcurrentDictionary<string, byte> _pendingQualityUpgrades = new();
     private static readonly TimeSpan MetadataCacheTtl = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan MetadataCacheNegativeTtl = TimeSpan.FromMinutes(1);
     private readonly IHttpClientFactory _httpClientFactory;
@@ -174,6 +177,58 @@ public abstract class BaseDownloadService : IDownloadService
                 Logger.LogError(ex, "Failed to download remaining album tracks for album {AlbumId}", albumExternalId);
             }
         });
+    }
+
+    public void UpgradeQualityInBackground(string externalProvider, string externalId)
+    {
+        if (externalProvider != ProviderName)
+        {
+            return;
+        }
+
+        _ = Task.Run(() => UpgradeQualityAsync(externalId, triggerAlbumDownload: true));
+    }
+
+    private async Task UpgradeQualityAsync(string externalId, bool triggerAlbumDownload, CancellationToken cancellationToken = default)
+    {
+        var key = $"{ProviderName}:{externalId}";
+        if (!_pendingQualityUpgrades.TryAdd(key, 0))
+        {
+            return;
+        }
+
+        // The provider may simply not offer the target quality. In that case the key is
+        // left in place so later plays stop re-downloading the same track for nothing.
+        var upgradeUnavailable = false;
+        try
+        {
+            var mapping = await LocalLibraryService.GetMappingForExternalSongAsync(ProviderName, externalId);
+            if (mapping == null || !IsQualityUpgradeAvailable(mapping.DownloadedQuality))
+            {
+                return;
+            }
+
+            await DownloadSongInternalAsync(ProviderName, externalId, triggerAlbumDownload, cancellationToken: cancellationToken);
+
+            var upgraded = await LocalLibraryService.GetMappingForExternalSongAsync(ProviderName, externalId);
+            upgradeUnavailable = upgraded != null && IsQualityUpgradeAvailable(upgraded.DownloadedQuality);
+            if (upgradeUnavailable)
+            {
+                Logger.LogInformation("{Provider}:{ExternalId} is not available above {Quality}, giving up on the upgrade",
+                    ProviderName, externalId, upgraded!.DownloadedQuality ?? "unknown");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Quality upgrade failed for {Provider}:{ExternalId}", ProviderName, externalId);
+        }
+        finally
+        {
+            if (!upgradeUnavailable)
+            {
+                _pendingQualityUpgrades.TryRemove(key, out _);
+            }
+        }
     }
 
     public void DownloadFullAlbumInBackground(string externalProvider, string albumExternalId)
@@ -387,13 +442,7 @@ public abstract class BaseDownloadService : IDownloadService
     /// <paramref name="Mp4DurationSeconds"/>, when set for an MP4/M4A file, is written into the moov
     /// duration fields after download — fragmented MP4 (Tidal HI_RES FLAC-in-MP4) otherwise reports 0:00.
     /// </summary>
-    /// <summary>
-    /// <paramref name="CencKey"/>, when set, is a 32-hex-char AES-128 key for a CENC-encrypted CMAF
-    /// stream (Amazon Music via squid.wtf). The encrypted file is written to disk first, then decrypted
-    /// in-place via <see cref="CmafCencDecryptor"/> before metadata is tagged.
-    /// The MP4 container is preserved; no remux step is required.
-    /// </summary>
-    public record DownloadResult(Stream DownloadStream, string Extension, string? DownloadedQuality, double? Mp4DurationSeconds = null, string? CencKey = null);
+    public record DownloadResult(Stream DownloadStream, string Extension, string? DownloadedQuality, double? Mp4DurationSeconds = null);
 
     /// <summary>
     /// Downloads a track and saves it to disk.
@@ -417,6 +466,12 @@ public abstract class BaseDownloadService : IDownloadService
     /// Used for quality upgrade comparison.
     /// </summary>
     protected abstract string? GetTargetQuality();
+
+    private bool IsQualityUpgradeAvailable(string? downloadedQuality)
+    {
+        return SubsonicSettings.AutoUpgradeQuality
+            && QualityHelper.ShouldUpgrade(downloadedQuality, GetTargetQuality());
+    }
 
     #endregion
 
@@ -465,8 +520,7 @@ public abstract class BaseDownloadService : IDownloadService
                 {
                     // Check if we should upgrade quality
                     var targetQuality = GetTargetQuality();
-                    bool shouldUpgrade = SubsonicSettings.AutoUpgradeQuality
-                        && QualityHelper.ShouldUpgrade(existingMapping.DownloadedQuality, targetQuality);
+                    bool shouldUpgrade = IsQualityUpgradeAvailable(existingMapping.DownloadedQuality);
 
                     // No upgrade needed – return already downloaded path
                     if (!shouldUpgrade)
@@ -735,13 +789,6 @@ public abstract class BaseDownloadService : IDownloadService
             // This catches cases where the stream is raw FLAC but we assumed MP4 container.
             outputPath = CorrectExtensionIfNeeded(outputPath);
 
-            // CENC-encrypted CMAF (Amazon Music via squid.wtf): decrypt in-place in pure .NET.
-            if (!string.IsNullOrEmpty(result.CencKey))
-            {
-                outputPath = DecryptCenc(outputPath, result.CencKey);
-                outputPath = DemuxFlacIfNeeded(outputPath);
-            }
-
             Logger.LogInformation("Downloaded file to: {Path}", outputPath);
 
             // Write metadata
@@ -808,52 +855,6 @@ public abstract class BaseDownloadService : IDownloadService
         {
             Logger.LogWarning(ex, "Format detection failed for {Path}, keeping original extension", path);
             return path;
-        }
-    }
-
-    // After CENC decryption, if the MP4 container holds raw FLAC frames (Amazon Music FLAC tier),
-    // extract them into a .flac file. AAC/Opus/Atmos streams stay as .m4a.
-    private string DemuxFlacIfNeeded(string path)
-    {
-        if (!path.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase)) return path;
-
-        var flacPath = Path.ChangeExtension(path, ".flac");
-        flacPath = PathHelper.ResolveUniquePath(flacPath);
-
-        try
-        {
-            if (CmafFlacDemuxer.TryDemux(path, flacPath))
-            {
-                IOFile.Delete(path);
-                Logger.LogInformation("Demuxed FLAC from MP4 container: {File}", Path.GetFileName(flacPath));
-                return flacPath;
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "FLAC demux failed for {Path}, keeping .m4a", path);
-            if (IOFile.Exists(flacPath)) IOFile.Delete(flacPath);
-        }
-
-        return path;
-    }
-
-    // Decrypt a CENC-encrypted CMAF file in-place using pure .NET + BouncyCastle AES-128-CTR.
-    // Amazon Music via squid.wtf delivers CMAF with AES-128-CTR CENC encryption;
-    // per-sample IVs are parsed from the moof/traf/senc boxes. The MP4 container is preserved.
-    private string DecryptCenc(string path, string hexKey)
-    {
-        try
-        {
-            var key = Convert.FromHexString(hexKey);
-            CmafCencDecryptor.Decrypt(path, path, key);
-            Logger.LogInformation("CENC decryption complete for {File}", Path.GetFileName(path));
-            return path;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "CENC decryption failed for {Path}", path);
-            throw;
         }
     }
 
@@ -977,6 +978,7 @@ public abstract class BaseDownloadService : IDownloadService
                 if (existingPath != null && IOFile.Exists(existingPath))
                 {
                     Logger.LogDebug("Track {TrackId} already in library, skipping", track.ExternalId);
+                    await UpgradeQualityAsync(track.ExternalId!, triggerAlbumDownload: false, cancellationToken);
                     continue;
                 }
 
