@@ -329,6 +329,7 @@ in {
         Subsonic__Url = lib.throwIf (sub.url == null) "Subsonic instance URL must be defined, but is null." (toString sub.url);
         Subsonic__MusicService = toString sub.musicService;
         Subsonic__AdminUsername = toString sub.admin.username;
+        Subsonic__AdminPassword = toString sub.admin.password;
         Subsonic__AutoUpgradeQuality = boolToString sub.autoUpgradeQuality;
         Subsonic__FolderTemplate = toString sub.folderTemplate;
         Subsonic__EnableExternalPlaylists = boolToString sub.enableExternalPlaylists;
